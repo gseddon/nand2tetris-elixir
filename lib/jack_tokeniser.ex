@@ -20,11 +20,20 @@ defmodule Jack.Tokeniser do
 
   @type token_type_t :: :keyword | :symbol | :identifier | :int_const | :string_const
 
+  @doc """
+  Given a number of lines representing an entire file, return them as tokens.
+  """
+  def process(lines) do
+    lines
+    |> Enum.with_index()
+    |> Enum.map(&split_line/1)
+    |> List.flatten()
+  end
 
   @doc """
   Given a specific line, return a list of the tokens that compose that line.
   """
-  def split(line, lineno \\ 1) do
+  def split_line({line, lineno}) do
     Regex.split(~r{\W}, line, trim: true, include_captures: true)
     |> Enum.filter(fn s -> s != " " end)
     |> tokenise(lineno)
@@ -38,7 +47,8 @@ defmodule Jack.Tokeniser do
       :keyword ->
          {rest, %Token{type: :keyword, value: String.to_atom(el)}}
       :int_const ->
-        {rest, %Token{type: :int_const, value: (with {val, _} <- Integer.parse(el), do: val)}}
+        {val, _} = Integer.parse(el)
+        {rest, %Token{type: :int_const, value: val}}
       :symbol ->
         {rest, %Token{type: :symbol, value: el}}
       :identifier ->
@@ -55,7 +65,7 @@ defmodule Jack.Tokeniser do
   one of KEYWORD, SYMBOL, IDENTIFIER, INT_CONST, STRING_CONST
   """
   @spec token_type(any) :: token_type_t
-  def token_type([var | _]) do
+  def token_type(var) do
     case var do
       var when var in ["class", "constructor", "function", "method", "field", "static", "var",
           "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do",
