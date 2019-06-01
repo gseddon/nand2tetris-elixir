@@ -1,10 +1,10 @@
-defmodule Token do
+defmodule Tk do
   alias Jack.Tokeniser
-  defstruct [:type, :value, :line]
+  defstruct [:type, :val, :line]
 
   @type t :: %__MODULE__{
     type: Tokeniser.token_type_t(),
-    value: String.t() | number | Tokeniser.keyword_t(),
+    val: String.t() | number | Tokeniser.keyword_t(),
     line: non_neg_integer
   }
 end
@@ -34,11 +34,11 @@ defmodule Jack.Tokeniser do
   Given a specific line, return a list of the tokens that compose that line.
   """
   def tokenise({{:comment, line}, lineno}) do
-    %Token{type: :comment, value: line, line: lineno}
+    %Tk{type: :comment, val: line, line: lineno}
   end
 
   def tokenise({{:nocomment, [line, inline_comment]}, lineno}) do
-    [tokenise({{:nocomment, line}, lineno}), %Token{type: :comment, value: inline_comment, line: lineno}]
+    [tokenise({{:nocomment, line}, lineno}), %Tk{type: :comment, val: inline_comment, line: lineno}]
   end
 
   def tokenise({{:nocomment, line}, lineno}) do
@@ -56,9 +56,9 @@ defmodule Jack.Tokeniser do
       with type <- token_type(el) do
         case type do
           :keyword ->
-            %Token{type: :keyword, value: el |> String.to_atom(), line: lineno}
+            %Tk{type: :keyword, val: el |> String.to_atom(), line: lineno}
           _ ->
-            %Token{type: type, value: el, line: lineno}
+            %Tk{type: type, val: el, line: lineno}
         end
       end
     end)

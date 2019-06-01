@@ -6,12 +6,14 @@ defmodule Jack.Analyser do
   3. Use the CompilationEngine to compile the input JackTokenizer into the output
   file.
   """
-  alias Jack.{Tokeniser, FileLoader}
+  alias Jack.{Tokeniser, FileLoader, Engine}
 
   def analyse(file) do
     {file_name, lines} = FileLoader.load_file(file)
     IO.puts(file_name)
     tokens = Tokeniser.process(lines)
-    IO.inspect(tokens, limit: :infinity, width: 120)
+    # IO.inspect(tokens, limit: :infinity, width: 120)
+    {[], program} = Engine.compile(tokens, [])
+    IO.inspect(program, limit: :infinity, width: 140)
   end
 end

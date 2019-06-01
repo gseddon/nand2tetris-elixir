@@ -1,6 +1,6 @@
-defmodule StructuredEl do
-  defstruct [:type, :elements]
-  @type t :: %__MODULE__{type: element_type(), elements: list(Token.t())}
+defmodule StEl do # StructuredElement
+  defstruct [:type, :els]
+  @type t :: %__MODULE__{type: element_type(), els: list(Token.t())}
 
   @type element_type :: :class | :class_var_dec | :subroutine_dec | :parameter_list | :subroutine_body |
     :var_dec | :statements | :while_statement | :if_statement | :return_statement | :let_statement | :do_statement |
@@ -51,7 +51,47 @@ defmodule Jack.Engine do
   @doc """
   This will always be called first. The first
   """
-  def build(lines) when is_list(lines) do
-    
+  def compile([%Tk{val: :class} = class, class_name = %Tk{type: :identifier}, br = %Tk{val: "{"} | tokens], acc) do
+    {remaining_tokens, class_elements} = compile_until(tokens, "}")
+    {remaining_tokens, acc ++ [%StEl{type: :class, els: [class, class_name, br] ++ class_elements}]}
+  end
+
+
+  def compile([], acc), do: {[], Enum.reverse(acc)}
+
+  def compile([%Tk{type: :keyword, val: val} = var_dec, type, name | tokens], acc) when val in [:field, :static] do
+    # Class variable declaration.
+    # field int x, y;
+    {remaining_tokens, more_var_dec_elements} = compile_until(tokens, ";")
+    {remaining_tokens, acc ++ %StEl{type: :class_var_dec, els: [var_dec, type, name] ++ more_var_dec_elements}}
+  end
+
+  def compile([%Tk{val: val} | _] = tokens, acc) when val in ["}", ";", ")"] do
+    {tokens, Enum.reverse(acc)}
+  end
+
+
+  def compile([%Tk{type: :comment} = comment | tokens], acc) do
+    compile(tokens, acc ++ [comment])
+  end
+
+  def compile([%Tk{type: :identifier} = identifier | tokens], acc) do
+    compile(tokens, acc ++ [identifier])
+  end
+
+  def compile([%Tk{val: ","} = comma | tokens], acc) do
+    compile(tokens, acc ++ [comma])
+  end
+
+
+  def compile_until([%Tk{} | _] = tokens, val), do: compile_until({tokens, []}, val)
+  def compile_until({[%Tk{val: val} | tokens], acc}, val) do
+    {tokens, acc}
+  end
+
+  def compile_until({tokens, acc}, tk) do
+    tokens
+    |> compile(acc)
+    |> compile_until(tk)
   end
 end
