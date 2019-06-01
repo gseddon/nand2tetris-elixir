@@ -63,11 +63,11 @@ defmodule Jack.Engine do
     # Class variable declaration.
     # field int x, y;
     {remaining_tokens, more_var_dec_elements} = compile_until(tokens, ";")
-    {remaining_tokens, acc ++ %StEl{type: :class_var_dec, els: [var_dec, type, name] ++ more_var_dec_elements}}
+    {remaining_tokens, acc ++ [%StEl{type: :class_var_dec, els: [var_dec, type, name] ++ more_var_dec_elements}]}
   end
 
   def compile([%Tk{val: val} | _] = tokens, acc) when val in ["}", ";", ")"] do
-    {tokens, Enum.reverse(acc)}
+    {tokens, acc}
   end
 
 
@@ -85,8 +85,8 @@ defmodule Jack.Engine do
 
 
   def compile_until([%Tk{} | _] = tokens, val), do: compile_until({tokens, []}, val)
-  def compile_until({[%Tk{val: val} | tokens], acc}, val) do
-    {tokens, acc}
+  def compile_until({[%Tk{val: val} = tk | tokens], acc}, val) do
+    {tokens, acc ++ [tk]}
   end
 
   def compile_until({tokens, acc}, tk) do
