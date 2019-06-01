@@ -12,6 +12,6 @@ defmodule Jack.Analyser do
     {file_name, lines} = FileLoader.load_file(file)
     IO.puts(file_name)
     tokens = Tokeniser.process(lines)
-    IO.inspect(tokens)
+    IO.inspect(tokens, limit: :infinity, width: 120)
   end
 end

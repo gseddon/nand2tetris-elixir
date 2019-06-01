@@ -29,5 +29,13 @@ defmodule Jack.Engine do
                             of ‘‘[’’, ‘‘(’’, or ‘‘.’’ suffices to distinguish between the three possibilities.
                             Any other token is not part of this term and should not be advanced over.
   CompileExpressionList   Compiles a (possibly empty) comma-separated list of expressions.
+
+  Non Terminal groupings:
+  * class, classVarDec, subroutineDec, parameterList, subroutineBody, varDec;
+  * statements, whileSatement, ifStatement, returnStatement, letStatement, doStatement;
+  * expression, term, expressionList.
+
+  Terminal Groupings
+  * keyword, symbol, integerConstant, stringConstant, or identifier.
   """
 end

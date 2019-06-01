@@ -4,7 +4,10 @@ defmodule Jack.FileLoader do
     {:ok, file} = File.open(path, [:read, :utf8] )
     file_name = extract_jack_filename(path)
 
-    lines = Enum.flat_map(IO.stream(file, :line), &clean_line/1)
+    lines =
+      file
+      |> IO.stream(:line)
+      |> filter_multiline_comments()
     {file_name, lines}
   end
 
@@ -23,16 +26,32 @@ defmodule Jack.FileLoader do
   #       end).())
   # end
 
- defp clean_line(line) do
-   line
-   |> String.split("//")
-   |> hd()
-   |> String.trim()
-   |> (fn
-         "" -> []
-         command -> [command]
-       end).()
- end
+  @doc """
+  This only handles multiline comments. // comments are still passed through.
+  """
+  def filter_multiline_comments(lines) do
+    lines
+    |> Enum.reduce({:nocomment, []}, fn line, {status, acc} ->
+      line = String.trim(line)
+        cond do
+          String.contains?(line, "*/") ->
+            {:nocomment, acc ++ [comment: line]}
+
+          String.starts_with?(line, ["/*", "//"]) ->
+            {:comment, acc ++ [comment: line]}
+
+          status == :comment ->
+            {:comment, acc ++ [comment: line]}
+
+          String.contains?(line, "//") -> # String has an inline comment. Stripping for now.
+            {:nocomment, acc ++ [nocomment: String.split(line, "//") |> hd()]}
+
+          true ->
+            {:nocomment, acc ++ [nocomment: line]}
+        end
+    end )
+    |> (fn {_state, lines} -> lines end).()
+  end
 
   defp extract_jack_filename(file_path), do: Path.basename(file_path, ".jack")
 

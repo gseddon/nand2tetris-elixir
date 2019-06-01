@@ -14,52 +14,45 @@ defmodule Jack.Tokeniser do
   Given a sequence of lines as input, split them up into tokens.
   """
 
-  @type keyword_t :: :class  | :method  | :function  | :constructor  |
-   :int  | :boolean | :char  | :void  | :var |  :static  | :field  |
-   :let  | :do  | :if  | :else  | :while  | :return  | :true  | :false  | :null  | :this
+  # @type keyword_t :: :class  | :method  | :function  | :constructor  |
+  #  :int  | :boolean | :char  | :void  | :var |  :static  | :field  |
+  #  :let  | :do  | :if  | :else  | :while  | :return  | :true  | :false  | :null  | :this
 
-  @type token_type_t :: :keyword | :symbol | :identifier | :int_const | :string_const
+  @type token_type_t :: :keyword | :symbol | :identifier | :int_const | :string_const | :comment
 
   @doc """
   Given a number of lines representing an entire file, return them as tokens.
   """
   def process(lines) do
     lines
-    |> Enum.with_index()
-    |> Enum.map(&split_line/1)
+    |> Enum.with_index(1)
+    |> Enum.map(&tokenise/1)
     |> List.flatten()
   end
 
   @doc """
   Given a specific line, return a list of the tokens that compose that line.
   """
-  def split_line({line, lineno}) do
-    Regex.split(~r{\W}, line, trim: true, include_captures: true)
-    |> Enum.filter(fn s -> s != " " end)
-    |> tokenise(lineno)
+  def tokenise({{:comment, line}, lineno}) do
+    %Token{type: :comment, value: line, line: lineno}
+  end
+  def tokenise({{:nocomment, line}, lineno}) do
+    Regex.split(~r/\".*\"/U, line, include_captures: true) # Split out quoted strings
+    |> Enum.map(fn
+       "\"" <> _rest = line ->
+          line
+
+       line ->
+          Regex.split(~r{\W}, line, trim: true, include_captures: true)
+       end )
+    |> List.flatten()
+    |> Enum.map( fn el ->
+      with type <- token_type(el) do
+        %Token{type: type, value: el, line: lineno}
+      end
+    end)
   end
 
-  @spec tokenise([any], non_neg_integer) :: [Token.t()]
-  def tokenise([], _), do: []
-  def tokenise([el | rest], lineno) do
-    {more, token} =
-      case token_type(el) do
-      :keyword ->
-         {rest, %Token{type: :keyword, value: String.to_atom(el)}}
-      :int_const ->
-        {val, _} = Integer.parse(el)
-        {rest, %Token{type: :int_const, value: val}}
-      :symbol ->
-        {rest, %Token{type: :symbol, value: el}}
-      :identifier ->
-        {rest, %Token{type: :identifier, value: el}}
-      :string_const ->
-        [str, ~s<"> | more] = rest
-        {more, %Token{type: :string_const, value: str}}
-    end
-    [%Token{token | line: lineno}] ++
-    tokenise(more, lineno)
-  end
 
   @doc """
   one of KEYWORD, SYMBOL, IDENTIFIER, INT_CONST, STRING_CONST
@@ -74,7 +67,7 @@ defmodule Jack.Tokeniser do
       symbol when symbol in ["{", "}", "(", ")", "[", "]", ".",
           ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"] ->
             :symbol
-      ~s<"> ->
+      "\"" <> _ ->
          :string_const
       var ->
         case Integer.parse(var) do
