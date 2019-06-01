@@ -14,9 +14,9 @@ defmodule Jack.Tokeniser do
   Given a sequence of lines as input, split them up into tokens.
   """
 
-  # @type keyword_t :: :class  | :method  | :function  | :constructor  |
-  #  :int  | :boolean | :char  | :void  | :var |  :static  | :field  |
-  #  :let  | :do  | :if  | :else  | :while  | :return  | :true  | :false  | :null  | :this
+  @type keyword_t :: :class  | :method  | :function  | :constructor  |
+   :int  | :boolean | :char  | :void  | :var |  :static  | :field  |
+   :let  | :do  | :if  | :else  | :while  | :return  | :true  | :false  | :null  | :this
 
   @type token_type_t :: :keyword | :symbol | :identifier | :int_const | :string_const | :comment
 
@@ -36,6 +36,7 @@ defmodule Jack.Tokeniser do
   def tokenise({{:comment, line}, lineno}) do
     %Token{type: :comment, value: line, line: lineno}
   end
+
   def tokenise({{:nocomment, [line, inline_comment]}, lineno}) do
     [tokenise({{:nocomment, line}, lineno}), %Token{type: :comment, value: inline_comment, line: lineno}]
   end
@@ -43,16 +44,22 @@ defmodule Jack.Tokeniser do
   def tokenise({{:nocomment, line}, lineno}) do
     Regex.split(~r/\".*\"/U, line, include_captures: true) # Split out quoted strings
     |> Enum.map(fn
-       "\"" <> _rest = line ->
+       "\"" <> _rest = line -> # Don't split quoted strings further
           line
 
        line ->
           Regex.split(~r{\W}, line, trim: true, include_captures: true)
+          |> Enum.reject(fn el -> el == " " end)
        end )
     |> List.flatten()
     |> Enum.map( fn el ->
       with type <- token_type(el) do
-        %Token{type: type, value: el, line: lineno}
+        case type do
+          :keyword ->
+            %Token{type: :keyword, value: el |> String.to_atom(), line: lineno}
+          _ ->
+            %Token{type: type, value: el, line: lineno}
+        end
       end
     end)
   end
@@ -79,37 +86,5 @@ defmodule Jack.Tokeniser do
           _ -> :int_const
         end
     end
-  end
-
-  @doc """
-  Returns the character which is the current token.
-  Should be called only when tokenType() is SYMBOL.
-  """
-  def symbol(token) do
-
-  end
-
-  @doc """
-  Returns the identifier which is the current token.
-  Should be called only when tokenType() is IDENTIFIER.
-  """
-  def identifier(token) do
-
-  end
-
-  @doc """
-  Returns the integer value of the current token.
-  Should be called only when tokenType() is INT_CONST.
-  """
-  def int_val(token) do
-
-  end
-
-  @doc """
-  Returns the string value of the current token, without the double quotes.
-  Should be called only when tokenType() is STRING_CONST.
-  """
-  def string_val(token) do
-
   end
 end

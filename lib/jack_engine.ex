@@ -1,3 +1,12 @@
+defmodule StructuredEl do
+  defstruct [:type, :elements]
+  @type t :: %__MODULE__{type: element_type(), elements: list(Token.t())}
+
+  @type element_type :: :class | :class_var_dec | :subroutine_dec | :parameter_list | :subroutine_body |
+    :var_dec | :statements | :while_statement | :if_statement | :return_statement | :let_statement | :do_statement |
+    :expression | :term | :expression_list
+end
+
 defmodule Jack.Engine do
   @moduledoc """
   Effects the actual compilation output. Gets its input from a
@@ -38,4 +47,11 @@ defmodule Jack.Engine do
   Terminal Groupings
   * keyword, symbol, integerConstant, stringConstant, or identifier.
   """
+
+  @doc """
+  This will always be called first. The first
+  """
+  def build(lines) when is_list(lines) do
+    
+  end
 end
