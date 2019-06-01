@@ -36,6 +36,10 @@ defmodule Jack.Tokeniser do
   def tokenise({{:comment, line}, lineno}) do
     %Token{type: :comment, value: line, line: lineno}
   end
+  def tokenise({{:nocomment, [line, inline_comment]}, lineno}) do
+    [tokenise({{:nocomment, line}, lineno}), %Token{type: :comment, value: inline_comment, line: lineno}]
+  end
+
   def tokenise({{:nocomment, line}, lineno}) do
     Regex.split(~r/\".*\"/U, line, include_captures: true) # Split out quoted strings
     |> Enum.map(fn

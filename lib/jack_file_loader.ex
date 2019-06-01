@@ -11,21 +11,6 @@ defmodule Jack.FileLoader do
     {file_name, lines}
   end
 
-  # defp clean_line_comments(line) do
-  #   [code | comment] = line
-  #   |> String.split("//")
-
-  #   comment = with [com | _] <- comment, do: ["//" <> com |> String.trim()]
-
-  #   comment ++
-  #   (code
-  #   |> String.trim()
-  #   |> (fn
-  #         "" -> []
-  #         command -> [command]
-  #       end).())
-  # end
-
   @doc """
   This only handles multiline comments. // comments are still passed through.
   """
@@ -44,7 +29,7 @@ defmodule Jack.FileLoader do
             {:comment, acc ++ [comment: line]}
 
           String.contains?(line, "//") -> # String has an inline comment. Stripping for now.
-            {:nocomment, acc ++ [nocomment: String.split(line, "//") |> hd()]}
+            {:nocomment, acc ++ [nocomment: String.split(line, "//")]}
 
           true ->
             {:nocomment, acc ++ [nocomment: line]}
