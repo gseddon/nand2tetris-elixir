@@ -88,7 +88,15 @@ defmodule Jack.Engine do
 
     # Build ourselves a subroutine body
     {body_remaining_tokens, subroutine_body_tokens} = compile_until_greedy(remaining_tokens, "}")
-    subroutine_body = [%StEl{type: :subroutine_body, els: [ob] ++ Enum.reverse(subroutine_body_tokens)}]
+    {var_decs, statement_tokens} =
+      subroutine_body_tokens
+      |> Enum.reverse()
+      |> Enum.split_while(fn
+          %StEl{type: :var_dec} -> true
+          _ -> false
+        end )
+    statements = [%StEl{type: :statements, els: statement_tokens}]
+    subroutine_body = [%StEl{type: :subroutine_body, els: [ob] ++ var_decs ++ statements}]
 
     {body_remaining_tokens, [%StEl{type: :subroutine_dec, els: [rt_type, ret_type, name, br] ++ parameter_list ++ [cl] ++ Enum.reverse(subroutine_body)}] ++ acc}
   end
