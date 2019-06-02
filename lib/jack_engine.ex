@@ -95,9 +95,10 @@ defmodule Jack.Engine do
       subroutine_body_tokens
       |> Enum.reverse()
       |> Enum.split_while(fn
-          %StEl{type: :var_dec} -> true
+          %{type: type} when type in [:var_dec, :comment] -> true # lucky Tk and StEl both have a :type param ;)
           _ -> false
         end )
+
     statements = [%StEl{type: :statements, els: statement_tokens}]
     subroutine_body = [%StEl{type: :subroutine_body, els: [ob] ++ var_decs ++ statements ++ [cb]}]
 
