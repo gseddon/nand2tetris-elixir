@@ -56,6 +56,8 @@ defmodule Jack.Engine do
   * keyword, symbol, integerConstant, stringConstant, or identifier.
   """
 
+  ################################## Program Structure ################################
+
   @doc """
   This will always be called first. The first
   """
@@ -71,8 +73,6 @@ defmodule Jack.Engine do
     # Class variable declaration.
     # field int x, y;
     {remaining_tokens, more_var_dec_elements} = compile_until_greedy(tokens, ";")
-    # IO.inspect(remaining_tokens, label: :rem_toks)
-    # IO.inspect(more_var_dec_elements, label: :more_var_decs)
     {remaining_tokens, [%StEl{type: :class_var_dec, els: [var_dec, type, name] ++ Enum.reverse(more_var_dec_elements)}] ++ acc}
   end
 
@@ -93,6 +93,35 @@ defmodule Jack.Engine do
     {body_remaining_tokens, [%StEl{type: :subroutine_dec, els: [rt_type, ret_type, name, br] ++ parameter_list ++ [cl] ++ Enum.reverse(subroutine_body)}] ++ acc}
   end
 
+  def compile([%Tk{type: :keyword, val: :var} = var_dec, type, name | tokens], acc) do
+    # Variable declaration.
+    # var int x, y;
+    {remaining_tokens, more_var_dec_elements} = compile_until_greedy(tokens, ";")
+    {remaining_tokens, [%StEl{type: :class_var_dec, els: [var_dec, type, name] ++ Enum.reverse(more_var_dec_elements)}] ++ acc}
+  end
+
+  ##################################### Statements ###################################
+
+  def compile([%Tk{type: :keyword, val: :let} = let, var_name,  %Tk{val: decider_val} = decider | tokens], acc) do
+    # Let statement.
+    # let x = v;
+    # let x [expr] = v;
+    {[%Tk{val: ";"} = sc | remaining_tokens], let_statement_els} =
+    case decider_val do
+      "[" ->
+        {_remaining_tokens, _more_var_dec_elements} = compile_until_greedy(tokens, "]") # TODO fix this for arrays
+
+      "=" ->
+        {remaining_tokens, expression_els} = compile_until_no_greedy(tokens, ";")
+        {remaining_tokens, [%StEl{type: :expression, els: Enum.reverse(expression_els)}]}
+    end
+    {remaining_tokens, [%StEl{type: :let_statement, els: [let, var_name, decider] ++ Enum.reverse(let_statement_els) ++ [sc]}] ++ acc}
+  end
+
+
+
+  ############################### no-ops and closing symbols #########################
+
 
   def compile([%Tk{type: type} = el | tokens], acc) when type in [:comment, :identifier, :keyword] do
     compile(tokens, [el | acc])
@@ -102,7 +131,7 @@ defmodule Jack.Engine do
     compile(tokens, [comma | acc])
   end
 
-  def compile([%Tk{val: val} | _] = tokens, acc) when val in ["}", ";", ")"] do
+  def compile([%Tk{val: val} | _] = tokens, acc) when val in ["}", ";", ")", "]"] do
     {tokens, acc}
   end
 
