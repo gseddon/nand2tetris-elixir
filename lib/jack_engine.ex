@@ -156,6 +156,28 @@ defmodule Jack.Engine do
     {remaining_tokens, [%StEl{type: :while_statement, els: [while_kw] ++ while_statement_expr_w_parens ++ while_bod_w_braces}] ++ acc}
   end
 
+  def compile([%Tk{type: :keyword, val: :do} = do_kw, name1,  %Tk{val: decider_val} = decider | tokens], acc) do
+    # Do statement.
+    # 'do' subroutineName '(' expressionList ')' | (className |
+    # varName) '.' subroutineName '(' expressionList ')'
+
+    {rem_name_toks, name} = # name includes the opening parenthesis here.
+      case decider_val do
+        "." ->
+          [name2, %Tk{val: "("} = op | rem_name_toks] = tokens
+          {rem_name_toks, [name1, decider, name2, op]}
+        _ ->
+          {tokens, [name1, decider]}
+      end
+
+    {[%Tk{val: ")"} = cp, %Tk{val: ";"} = sc | remaining_tokens], expression_els} = compile_until_no_greedy(rem_name_toks, ")")
+    expression = [%StEl{type: :expression, els: Enum.reverse(expression_els)}]
+
+
+    {remaining_tokens, [%StEl{type: :do_statement, els: [do_kw] ++ name ++ expression ++ [cp, sc]}] ++ acc}
+  end
+
+
   def compile([%Tk{type: :keyword, val: :return} = return_kw, %Tk{val: decider_val} = decider | tokens], acc) do
     # Return statement.
     # 'return' expression? ';'
