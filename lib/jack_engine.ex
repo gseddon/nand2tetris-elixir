@@ -55,6 +55,9 @@ defmodule Jack.Engine do
   Terminal Groupings
   * keyword, symbol, integerConstant, stringConstant, or identifier.
   """
+  # These are super handy
+  # IO.inspect(tokens, label: :tokens, depth: :infinite)
+  # IO.inspect(acc, label: :acc, depth: :infinite)
 
   ################################## Program Structure ################################
 
@@ -105,7 +108,7 @@ defmodule Jack.Engine do
     # Variable declaration.
     # var int x, y;
     {remaining_tokens, more_var_dec_elements} = compile_until_greedy(tokens, ";")
-    {remaining_tokens, [%StEl{type: :class_var_dec, els: [var_dec, type, name] ++ Enum.reverse(more_var_dec_elements)}] ++ acc}
+    {remaining_tokens, [%StEl{type: :var_dec, els: [var_dec, type, name] ++ Enum.reverse(more_var_dec_elements)}] ++ acc}
   end
 
   ##################################### Statements ###################################
@@ -114,16 +117,17 @@ defmodule Jack.Engine do
     # Let statement.
     # let x = v;
     # let x [expr] = v;
-    {[%Tk{val: ";"} = sc | remaining_tokens], let_statement_els} =
-    case decider_val do
-      "[" ->
-        {_remaining_tokens, _more_var_dec_elements} = compile_until_greedy(tokens, "]") # TODO fix this for arrays
+    {name_rem_tks, name} =
+      if decider_val == "[" do
+        {[cb, eq | remaining_tokens], assignee_expr_tks} = compile_until_no_greedy(tokens, "]")
+          {remaining_tokens, [var_name, decider] ++ expression(Enum.reverse(assignee_expr_tks)) ++ [cb, eq]}
+      else # Then the decider is the eq
+        {tokens, [var_name, decider]}
+      end
+    {[%Tk{val: ";"} = sc | remaining_tokens], expression_els} = compile_until_no_greedy(name_rem_tks, ";")
+    let_statement_els = expression(Enum.reverse(expression_els))
 
-      "=" ->
-        {remaining_tokens, expression_els} = compile_until_no_greedy(tokens, ";")
-        {remaining_tokens, expression(Enum.reverse(expression_els))}
-    end
-    {remaining_tokens, [%StEl{type: :let_statement, els: [let, var_name, decider] ++ Enum.reverse(let_statement_els) ++ [sc]}] ++ acc}
+    {remaining_tokens, [%StEl{type: :let_statement, els: [let] ++ name ++ let_statement_els ++ [sc]}] ++ acc}
   end
 
   def compile([%Tk{type: :keyword, val: :if} = if_kw, op | tokens], acc) do
@@ -211,6 +215,10 @@ defmodule Jack.Engine do
     compile(tokens, [el | acc])
   end
 
+  def compile([%Tk{val: val} = sym | tokens], acc) when val in ["|"] do
+    compile(tokens, [sym | acc])
+  end
+
   def compile([%Tk{val: ","} = comma | tokens], acc) do
     compile(tokens, [comma | acc])
   end
@@ -249,6 +257,15 @@ defmodule Jack.Engine do
   @spec expression(list(StEl.t() | Tk.t())) :: [StEl.t()]
   def expression([]), do: []
   def expression(tokens) do
+    # expressions =
+    #   tokens
+    #   |> Enum.chunk_by(fn
+    #      %Tk{val: ","} -> true
+    #     _ -> false
+    #   end) # Make a list of lists, chunked by containing a comma.
+    #   |>
+
+
     terms =
       tokens
       |> Enum.map(fn expr -> %StEl{type: :term, els: [expr]} end)

@@ -46,8 +46,11 @@ defmodule Jack.FileLoader do
           String.contains?(line, "*/") ->
             {:nocomment, acc ++ [comment: line]}
 
-          String.starts_with?(line, ["/*", "//"]) ->
+          String.starts_with?(line, "/*") ->
             {:comment, acc ++ [comment: line]}
+
+          String.starts_with?(line, "//") ->
+            {:nocomment, acc ++ [comment: line]}
 
           status == :comment ->
             {:comment, acc ++ [comment: line]}
