@@ -14,6 +14,6 @@ defmodule Jack.Analyser do
     tokens = Tokeniser.process(lines)
     # IO.inspect(tokens, limit: :infinity, width: 120)
     {[], program} = Engine.compile(tokens, [])
-    IO.inspect(program, limit: :infinity, width: 140)
+    IO.inspect(Enum.reverse(program), limit: :infinity, width: 140)
   end
 end

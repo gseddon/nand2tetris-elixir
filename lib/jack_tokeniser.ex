@@ -7,6 +7,14 @@ defmodule Tk do
     val: String.t() | number | Tokeniser.keyword_t(),
     line: non_neg_integer
   }
+
+  defimpl Inspect, for: Tk do
+    import Inspect.Algebra
+
+    def inspect(%Tk{type: type, val: value}, opts) do
+      concat(["#", to_doc([type, value], opts)])
+    end
+  end
 end
 
 defmodule Jack.Tokeniser do

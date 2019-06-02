@@ -5,6 +5,14 @@ defmodule StEl do # StructuredElement
   @type element_type :: :class | :class_var_dec | :subroutine_dec | :parameter_list | :subroutine_body |
     :var_dec | :statements | :while_statement | :if_statement | :return_statement | :let_statement | :do_statement |
     :expression | :term | :expression_list
+
+  defimpl Inspect, for: StEl do
+    import Inspect.Algebra
+
+    def inspect(%StEl{type: type, els: els}, opts) do
+      concat(["#{type} {", to_doc(els, opts), "}"])
+    end
+  end
 end
 
 defmodule Jack.Engine do
@@ -52,46 +60,76 @@ defmodule Jack.Engine do
   This will always be called first. The first
   """
   def compile([%Tk{val: :class} = class, class_name = %Tk{type: :identifier}, br = %Tk{val: "{"} | tokens], acc) do
-    {remaining_tokens, class_elements} = compile_until(tokens, "}")
-    {remaining_tokens, acc ++ [%StEl{type: :class, els: [class, class_name, br] ++ class_elements}]}
+    # Class declaration.
+    # Class class_name { class_variable*, subroutine* }
+    {remaining_tokens, class_elements} = compile_until_greedy(tokens, "}")
+    {remaining_tokens, [%StEl{type: :class, els: [class, class_name, br] ++ Enum.reverse(class_elements) }] ++ acc}
   end
 
-
-  def compile([], acc), do: {[], Enum.reverse(acc)}
 
   def compile([%Tk{type: :keyword, val: val} = var_dec, type, name | tokens], acc) when val in [:field, :static] do
     # Class variable declaration.
     # field int x, y;
-    {remaining_tokens, more_var_dec_elements} = compile_until(tokens, ";")
-    {remaining_tokens, acc ++ [%StEl{type: :class_var_dec, els: [var_dec, type, name] ++ more_var_dec_elements}]}
+    {remaining_tokens, more_var_dec_elements} = compile_until_greedy(tokens, ";")
+    # IO.inspect(remaining_tokens, label: :rem_toks)
+    # IO.inspect(more_var_dec_elements, label: :more_var_decs)
+    {remaining_tokens, [%StEl{type: :class_var_dec, els: [var_dec, type, name] ++ Enum.reverse(more_var_dec_elements)}] ++ acc}
+  end
+
+  def compile([%Tk{type: :keyword, val: val} = rt_type, ret_type, name, br = %Tk{val: "("} | tokens], acc) when val in [:constructor, :function, :method, :void] do
+    # Subroutine declaration.
+    # ('constructor' | 'function' | 'method')
+    # ('void' | type) subroutineName '(' parameterList ')'
+    # subroutineBody
+
+    # Apparently a parameter list doesn't include the braces ¯\_(ツ)_/¯
+    {[%Tk{val: ")"} = cl, %Tk{val: "{"} = ob | remaining_tokens], parameter_list_tokens} = compile_until_no_greedy(tokens, ")")
+    parameter_list = [%StEl{type: :parameter_list, els: Enum.reverse(parameter_list_tokens)}]
+
+    # Build ourselves a subroutine body
+    {body_remaining_tokens, subroutine_body_tokens} = compile_until_greedy(remaining_tokens, "}")
+    subroutine_body = [%StEl{type: :subroutine_body, els: [ob] ++ Enum.reverse(subroutine_body_tokens)}]
+
+    {body_remaining_tokens, [%StEl{type: :subroutine_dec, els: [rt_type, ret_type, name, br] ++ parameter_list ++ [cl] ++ Enum.reverse(subroutine_body)}] ++ acc}
+  end
+
+
+  def compile([%Tk{type: type} = el | tokens], acc) when type in [:comment, :identifier, :keyword] do
+    compile(tokens, [el | acc])
+  end
+
+  def compile([%Tk{val: ","} = comma | tokens], acc) do
+    compile(tokens, [comma | acc])
   end
 
   def compile([%Tk{val: val} | _] = tokens, acc) when val in ["}", ";", ")"] do
     {tokens, acc}
   end
 
+  def compile([], acc), do: {[], Enum.reverse(acc)}
 
-  def compile([%Tk{type: :comment} = comment | tokens], acc) do
-    compile(tokens, acc ++ [comment])
+
+  @doc """
+  Calls compile until we have the specified token returned at the end.
+  Removes it and appends it to the head of the accumulator.
+  """
+  def compile_until_greedy(tokens, val) do
+    {[tk | tokens], acc} = compile_until_no_greedy(tokens, val)
+    {tokens, [tk | acc]}
   end
 
-  def compile([%Tk{type: :identifier} = identifier | tokens], acc) do
-    compile(tokens, acc ++ [identifier])
+  @doc """
+  Calls compile until the specified token is found at the start of `remaining_tokens`. Leaves the token
+  at the head of `remaining_tokens`.
+  """
+  def compile_until_no_greedy([%Tk{} | _] = tokens, val), do: compile_until_no_greedy({tokens, []}, val)
+  def compile_until_no_greedy({[%Tk{val: val} | _] = tokens, acc}, val) do
+    {tokens, acc}
   end
 
-  def compile([%Tk{val: ","} = comma | tokens], acc) do
-    compile(tokens, acc ++ [comma])
-  end
-
-
-  def compile_until([%Tk{} | _] = tokens, val), do: compile_until({tokens, []}, val)
-  def compile_until({[%Tk{val: val} = tk | tokens], acc}, val) do
-    {tokens, acc ++ [tk]}
-  end
-
-  def compile_until({tokens, acc}, tk) do
+  def compile_until_no_greedy({tokens, acc}, tk) do
     tokens
     |> compile(acc)
-    |> compile_until(tk)
+    |> compile_until_no_greedy(tk)
   end
 end
