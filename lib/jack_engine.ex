@@ -83,11 +83,11 @@ defmodule Jack.Engine do
     # subroutineBody
 
     # Apparently a parameter list doesn't include the braces ¯\_(ツ)_/¯
-    {[%Tk{val: ")"} = cl, %Tk{val: "{"} = ob | remaining_tokens], parameter_list_tokens} = compile_until_no_greedy(tokens, ")")
+    {[%Tk{val: ")"} = cp, %Tk{val: "{"} = ob | remaining_tokens], parameter_list_tokens} = compile_until_no_greedy(tokens, ")")
     parameter_list = [%StEl{type: :parameter_list, els: Enum.reverse(parameter_list_tokens)}]
 
     # Build ourselves a subroutine body
-    {body_remaining_tokens, subroutine_body_tokens} = compile_until_greedy(remaining_tokens, "}")
+    {[cb | body_remaining_tokens], subroutine_body_tokens} = compile_until_no_greedy(remaining_tokens, "}")
     {var_decs, statement_tokens} =
       subroutine_body_tokens
       |> Enum.reverse()
@@ -96,9 +96,9 @@ defmodule Jack.Engine do
           _ -> false
         end )
     statements = [%StEl{type: :statements, els: statement_tokens}]
-    subroutine_body = [%StEl{type: :subroutine_body, els: [ob] ++ var_decs ++ statements}]
+    subroutine_body = [%StEl{type: :subroutine_body, els: [ob] ++ var_decs ++ statements ++ [cb]}]
 
-    {body_remaining_tokens, [%StEl{type: :subroutine_dec, els: [rt_type, ret_type, name, br] ++ parameter_list ++ [cl] ++ Enum.reverse(subroutine_body)}] ++ acc}
+    {body_remaining_tokens, [%StEl{type: :subroutine_dec, els: [rt_type, ret_type, name, br] ++ parameter_list ++ [cp] ++ Enum.reverse(subroutine_body)}] ++ acc}
   end
 
   def compile([%Tk{type: :keyword, val: :var} = var_dec, type, name | tokens], acc) do
@@ -121,18 +121,18 @@ defmodule Jack.Engine do
 
       "=" ->
         {remaining_tokens, expression_els} = compile_until_no_greedy(tokens, ";")
-        {remaining_tokens, [%StEl{type: :expression, els: Enum.reverse(expression_els)}]}
+        {remaining_tokens, expression(Enum.reverse(expression_els))}
     end
     {remaining_tokens, [%StEl{type: :let_statement, els: [let, var_name, decider] ++ Enum.reverse(let_statement_els) ++ [sc]}] ++ acc}
   end
 
-  def compile([%Tk{type: :keyword, val: :if} = if_kw, l_br | tokens], acc) do
+  def compile([%Tk{type: :keyword, val: :if} = if_kw, op | tokens], acc) do
     # If statement.
     # 'if' '(' expression ')' '{' statements '}'
     # ('else' '{' statements '}')?
 
     {[%Tk{val: ")"} = cp, %Tk{val: "{"} = ob | if_statement_rem_tok], expression_els} = compile_until_no_greedy(tokens, ")")
-    if_statement_expr_w_parens = [l_br, %StEl{type: :expression, els: Enum.reverse(expression_els)}, cp]
+    if_statement_expr_w_parens = [op] ++ expression(Enum.reverse(expression_els)) ++ [cp]
 
     {[%Tk{val: "}"} = cb | if_body_rem_tok], if_body} = compile_until_no_greedy(if_statement_rem_tok, "}")
     if_bod_w_braces = [ob, %StEl{type: :statements, els: Enum.reverse(if_body)}, cb]
@@ -151,12 +151,12 @@ defmodule Jack.Engine do
     {remaining_tokens, [%StEl{type: :if_statement, els: [if_kw] ++ if_statement_expr_w_parens ++ if_bod_w_braces ++ else_body_w_braces}] ++ acc}
   end
 
-  def compile([%Tk{type: :keyword, val: :while} = while_kw, l_br | tokens], acc) do
+  def compile([%Tk{type: :keyword, val: :while} = while_kw, op | tokens], acc) do
     # While statement.
     # 'while' '(' expression ')' '{' statements '}'
 
     {[%Tk{val: ")"} = cp, %Tk{val: "{"} = ob | while_statement_rem_tok], expression_els} = compile_until_no_greedy(tokens, ")")
-    while_statement_expr_w_parens = [l_br, %StEl{type: :expression, els: Enum.reverse(expression_els)}, cp]
+    while_statement_expr_w_parens = [op] ++ expression(Enum.reverse(expression_els)) ++ [cp]
 
     {[%Tk{val: "}"} = cb | remaining_tokens], while_body} = compile_until_no_greedy(while_statement_rem_tok, "}")
     while_bod_w_braces = [ob, %StEl{type: :statements, els: [Enum.reverse(while_body)]}, cb]
@@ -179,7 +179,7 @@ defmodule Jack.Engine do
       end
 
     {[%Tk{val: ")"} = cp, %Tk{val: ";"} = sc | remaining_tokens], expression_els} = compile_until_no_greedy(rem_name_toks, ")")
-    expression = [%StEl{type: :expression, els: Enum.reverse(expression_els)}]
+    expression = [%StEl{type: :expression_list, els: expression(Enum.reverse(expression_els))}]
 
 
     {remaining_tokens, [%StEl{type: :do_statement, els: [do_kw] ++ name ++ expression ++ [cp, sc]}] ++ acc}
@@ -197,7 +197,7 @@ defmodule Jack.Engine do
           {tokens, [decider]}
         _ ->
           {[sc | remaining_tokens], expression_els} = compile_until_no_greedy(tokens, ";")
-          {remaining_tokens, [%StEl{type: :expression, els: Enum.reverse(expression_els)}, sc]}
+          {remaining_tokens, expression(Enum.reverse([decider] ++ expression_els)) ++ [sc]}
       end
 
     {remaining_tokens, [%StEl{type: :return_statement, els: [return_kw] ++ return_expression}] ++ acc}
@@ -244,5 +244,14 @@ defmodule Jack.Engine do
     tokens
     |> compile(acc)
     |> compile_until_no_greedy(tk)
+  end
+
+  @spec expression(list(StEl.t() | Tk.t())) :: [StEl.t()]
+  def expression([]), do: []
+  def expression(tokens) do
+    terms =
+      tokens
+      |> Enum.map(fn expr -> %StEl{type: :term, els: [expr]} end)
+    [%StEl{type: :expression, els: terms}]
   end
 end

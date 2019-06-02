@@ -1,6 +1,10 @@
 # Jacklexer
 
-**TODO: Add description**
+## Monkeypatching
+In the XML lib, in `xml_builder.ex`, replace line 216 with:
+```elixir
+    do: [indent(level, options), '<', to_string(name), '>', '\n', indent(level, options), '</', to_string(name), '>']
+```
 
 ## Installation
 
