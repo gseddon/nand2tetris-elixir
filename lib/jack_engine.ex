@@ -127,14 +127,14 @@ defmodule Jack.Engine do
     if_statement_expr_w_parens = [l_br, %StEl{type: :expression, els: Enum.reverse(expression_els)}, cp]
 
     {[%Tk{val: "}"} = cb | if_body_rem_tok], if_body} = compile_until_no_greedy(if_statement_rem_tok, "}")
-    if_bod_w_braces = [ob, %StEl{type: :statements, els: [Enum.reverse(if_body)]}, cb]
+    if_bod_w_braces = [ob, %StEl{type: :statements, els: Enum.reverse(if_body)}, cb]
 
     {remaining_tokens, else_body_w_braces} =
       case hd(if_body_rem_tok) do
         %Tk{val: :else} ->
           [else_kw, ob | pre_else_rem_tok] = if_body_rem_tok
           {[cb | else_body_rem_tok], tail_body} = compile_until_no_greedy(pre_else_rem_tok, "}")
-          else_bod_w_braces = [else_kw, ob, %StEl{type: :statements, els: [Enum.reverse(tail_body)]}, cb]
+          else_bod_w_braces = [else_kw, ob, %StEl{type: :statements, els: Enum.reverse(tail_body)}, cb]
           {else_body_rem_tok, else_bod_w_braces}
 
         _ -> {if_body_rem_tok, []}
@@ -181,13 +181,14 @@ defmodule Jack.Engine do
   def compile([%Tk{type: :keyword, val: :return} = return_kw, %Tk{val: decider_val} = decider | tokens], acc) do
     # Return statement.
     # 'return' expression? ';'
-
+    # IO.inspect(tokens, label: :tokens, depth: :infinite)
+    # IO.inspect(acc, label: :acc, depth: :infinite)
     {remaining_tokens, return_expression} =
       case decider_val do
         ";" ->
           {tokens, [decider]}
         _ ->
-          {[sc, remaining_tokens], expression_els} = compile_until_no_greedy(tokens, ";")
+          {[sc | remaining_tokens], expression_els} = compile_until_no_greedy(tokens, ";")
           {remaining_tokens, [%StEl{type: :expression, els: Enum.reverse(expression_els)}, sc]}
       end
 

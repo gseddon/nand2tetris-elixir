@@ -11,6 +11,30 @@ defmodule Jack.FileLoader do
     {file_name, lines}
   end
 
+  def write_file(contents, file_path) do
+    {:ok, file} =
+      file_path
+      |> generate_output_filename()
+      |> File.open([:write, :utf8])
+
+    IO.write(file, contents)
+  end
+
+  def generate_output_filename({type, path}) do
+    case type do
+      :folder ->
+        Path.join([
+          path,
+          Path.basename(path) <> ".xml"
+        ])
+      :xml ->
+        Path.join([
+          Path.dirname(path),
+          Path.basename(path, ".jack") <> "_out.xml"
+        ])
+    end
+  end
+
   @doc """
   This only handles multiline comments. // comments are still passed through.
   """

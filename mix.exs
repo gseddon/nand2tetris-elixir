@@ -23,7 +23,7 @@ defmodule Jacklexer.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:xml_builder, "~> 2.0.0"},
+      {:xml_builder, "~> 2.0.0"},
       {:dialyxir, "~> 1.0.0-rc.6", only: [:dev], runtime: false}
     ]
   end
