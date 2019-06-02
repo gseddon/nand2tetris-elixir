@@ -126,7 +126,7 @@ defmodule Jack.Engine do
         {tokens, [var_name, decider]}
       end
     {[%Tk{val: ";"} = sc | remaining_tokens], expression_els} = compile_until_no_greedy(name_rem_tks, ";")
-    let_statement_els = expression(Enum.reverse(expression_els))
+    let_statement_els = Enum.reverse(expression(expression_els))
 
     {remaining_tokens, [%StEl{type: :let_statement, els: [let] ++ name ++ let_statement_els ++ [sc]}] ++ acc}
   end
@@ -174,6 +174,8 @@ defmodule Jack.Engine do
     # 'do' subroutineName '(' expressionList ')' | (className |
     # varName) '.' subroutineName '(' expressionList ')'
 
+    # expressionList: (expression (',' expression)* )?
+
     {rem_name_toks, name} = # name includes the opening parenthesis here.
       case decider_val do
         "." ->
@@ -184,10 +186,31 @@ defmodule Jack.Engine do
       end
 
     {[%Tk{val: ")"} = cp, %Tk{val: ";"} = sc | remaining_tokens], expression_els} = compile_until_no_greedy(rem_name_toks, ")")
-    expression = [%StEl{type: :expression_list, els: expression(Enum.reverse(expression_els))}]
 
+    expressions = case expression_els do
+      [] ->
+        [%StEl{type: :expression_list, els: []}]
 
-    {remaining_tokens, [%StEl{type: :do_statement, els: [do_kw] ++ name ++ expression ++ [cp, sc]}] ++ acc}
+      _ ->
+        [first_expr_toks | other_expr_toks] =
+          expression_els
+          |> Enum.reverse()
+          |> Enum.chunk_by(fn
+            %Tk{val: ","} -> true
+            _ -> false
+          end)
+
+        other_exprs =
+          other_expr_toks
+          |> Enum.map(fn
+            [comma | expr] -> [comma] ++ Enum.reverse(expression(expr))
+            _ -> []
+          end)
+        first_expr = Enum.reverse(expression(first_expr_toks))
+        [%StEl{type: :expression_list, els: first_expr ++ other_exprs}]
+    end
+
+    {remaining_tokens, [%StEl{type: :do_statement, els: [do_kw] ++ name ++ expressions ++ [cp, sc]}] ++ acc}
   end
 
 
@@ -258,18 +281,49 @@ defmodule Jack.Engine do
   @spec expression(list(StEl.t() | Tk.t())) :: [StEl.t()]
   def expression([]), do: []
   def expression(tokens) do
-    # expressions =
-    #   tokens
-    #   |> Enum.chunk_by(fn
-    #      %Tk{val: ","} -> true
-    #     _ -> false
-    #   end) # Make a list of lists, chunked by containing a comma.
-    #   |>
 
-
-    terms =
-      tokens
-      |> Enum.map(fn expr -> %StEl{type: :term, els: [expr]} end)
+    {[], terms} = compile_expr_until_no_greedy(tokens, [])
+      # |> Enum.map(fn expr -> %StEl{type: :term, els: [expr]} end)
     [%StEl{type: :expression, els: terms}]
+  end
+
+
+  def compile_expr([%Tk{type: :var_name} = tk, %Tk{val: decider_val} = decider | tokens], acc) do
+    # varName | varName '[' expression ']'
+    if decider_val == "[" do
+      {[cb | remaining_tokens], array_expr_toks} = compile_expr_until_no_greedy(tokens, "]")
+      {remaining_tokens, [decider] ++ Enum.reverse(expression(array_expr_toks)) ++ [cb] ++ acc}
+    else
+      {[decider] ++ tokens, [%StEl{type: :term, els: [tk]}] ++ acc}
+    end
+  end
+
+  def compile_expr([%Tk{val: "("} = op | tokens], acc) do
+    # Parse parentheses pairs into subexpressions
+    {[cp | remaining_tokens], paren_expr_toks} = compile_expr_until_no_greedy(tokens, ")")
+    paren_expr = Enum.reverse(expression(paren_expr_toks))
+    {remaining_tokens, [op] ++ Enum.reverse(paren_expr) ++ [cp] ++ acc}
+  end
+
+  def compile_expr([%Tk{type: :symbol} = tk | tokens], acc) do
+    # Pass symbols through
+    {tokens, [tk | acc]}
+  end
+
+  def compile_expr([tk | tokens], acc) do
+    # Catch everything
+    {tokens, [%StEl{type: :term, els: [tk]}] ++ acc}
+  end
+
+  def compile_expr_until_no_greedy([%Tk{} | _] = tokens, val), do: compile_expr_until_no_greedy({tokens, []}, val)
+  def compile_expr_until_no_greedy({[], acc}, _val), do: {[], acc}
+  def compile_expr_until_no_greedy({[%Tk{val: val} | _] = tokens, acc}, val) do
+    {tokens, acc}
+  end
+
+  def compile_expr_until_no_greedy({tokens, acc}, tk) do
+    tokens
+    |> compile_expr(acc)
+    |> compile_expr_until_no_greedy(tk)
   end
 end
