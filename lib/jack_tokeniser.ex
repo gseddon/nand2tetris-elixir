@@ -11,8 +11,9 @@ defmodule Tk do
   defimpl Inspect, for: Tk do
     import Inspect.Algebra
 
-    def inspect(%Tk{type: type, val: value}, opts) do
-      concat(["#", to_doc(type, opts), ": ", to_doc(value, opts)])
+    def inspect(%Tk{type: _type, val: value}, opts) do
+      # concat(["#", to_doc(type, opts), ": ", to_doc(value, opts)])
+      to_doc(value, opts)
     end
   end
 end

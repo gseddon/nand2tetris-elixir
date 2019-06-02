@@ -10,7 +10,7 @@ defmodule StEl do # StructuredElement
     import Inspect.Algebra
 
     def inspect(%StEl{type: type, els: els}, opts) do
-      concat(["#{type} {", to_doc(els, opts), "}"])
+      concat(["#{type} ", to_doc(els, opts), ""])
     end
   end
 end
@@ -116,6 +116,31 @@ defmodule Jack.Engine do
         {remaining_tokens, [%StEl{type: :expression, els: Enum.reverse(expression_els)}]}
     end
     {remaining_tokens, [%StEl{type: :let_statement, els: [let, var_name, decider] ++ Enum.reverse(let_statement_els) ++ [sc]}] ++ acc}
+  end
+
+  def compile([%Tk{type: :keyword, val: :if} = if_kw, l_br | tokens], acc) do
+    # If statement.
+    # 'if' '(' expression ')' '{' statements '}'
+    # ('else' '{' statements '}')?
+
+    {[%Tk{val: ")"} = cp, %Tk{val: "{"} = ob | if_statement_rem_tok], expression_els} = compile_until_no_greedy(tokens, ")")
+    if_statement_expr_w_parens = [l_br, %StEl{type: :expression, els: Enum.reverse(expression_els)}, cp]
+
+    {[%Tk{val: "}"} = cb | if_body_rem_tok], if_body} = compile_until_no_greedy(if_statement_rem_tok, "}")
+    if_bod_w_braces = [ob, %StEl{type: :statements, els: [Enum.reverse(if_body)]}, cb]
+
+    {remaining_tokens, else_body_w_braces} =
+      case hd(if_body_rem_tok) do
+        %Tk{val: :else} = else_kw ->
+          [else_kw, ob | pre_else_rem_tok] = if_body_rem_tok
+          {[cb | else_body_rem_tok], tail_body} = compile_until_no_greedy(pre_else_rem_tok, "}")
+          else_bod_w_braces = [else_kw, ob, %StEl{type: :statements, els: [Enum.reverse(tail_body)]}, cb]
+          {else_body_rem_tok, else_bod_w_braces}
+
+        _ -> {if_body_rem_tok, []}
+      end
+
+    {remaining_tokens, [%StEl{type: :if_statement, els: [if_kw] ++ if_statement_expr_w_parens ++ if_bod_w_braces ++ else_body_w_braces}] ++ acc}
   end
 
 
