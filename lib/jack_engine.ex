@@ -126,7 +126,7 @@ defmodule Jack.Engine do
         {tokens, [var_name, decider]}
       end
     {[%Tk{val: ";"} = sc | remaining_tokens], expression_els} = compile_until_no_greedy(name_rem_tks, ";")
-    let_statement_els = Enum.reverse(expression(expression_els))
+    let_statement_els = expression(Enum.reverse(expression_els))
 
     {remaining_tokens, [%StEl{type: :let_statement, els: [let] ++ name ++ let_statement_els ++ [sc]}] ++ acc}
   end
