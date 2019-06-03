@@ -231,17 +231,13 @@ defmodule Jack.Engine do
     {remaining_tokens, [%StEl{type: :return_statement, els: [return_kw] ++ return_expression}] ++ acc}
   end
 
+  def compile([%Tk{val: "("} = op | tokens], acc) do
+    {[cp | remaining_tokens], expression_els} = compile_until_no_greedy(tokens, ")")
+    compile(remaining_tokens, [op] ++ expression(Enum.reverse(expression_els)) ++ [cp] ++ acc)
+  end
+
 
   ############################### no-ops and closing symbols #########################
-
-
-  def compile([%Tk{type: type} = el | tokens], acc) when type in [:comment, :identifier, :keyword] do
-    compile(tokens, [el | acc])
-  end
-
-  def compile([%Tk{val: val} = sym | tokens], acc) when val in ["|"] do
-    compile(tokens, [sym | acc])
-  end
 
   def compile([%Tk{val: ","} = comma | tokens], acc) do
     compile(tokens, [comma | acc])
@@ -249,6 +245,10 @@ defmodule Jack.Engine do
 
   def compile([%Tk{val: val} | _] = tokens, acc) when val in ["}", ";", ")", "]"] do
     {tokens, acc}
+  end
+
+  def compile([%Tk{type: type} = el | tokens], acc) when type in [:comment, :identifier, :keyword, :symbol, :int_const, :string_const] do
+    compile(tokens, [el | acc])
   end
 
   def compile([], acc), do: {[], Enum.reverse(acc)}
@@ -298,12 +298,12 @@ defmodule Jack.Engine do
     end
   end
 
-  def compile_expr([%Tk{val: "("} = op | tokens], acc) do
-    # Parse parentheses pairs into subexpressions
-    {[cp | remaining_tokens], paren_expr_toks} = compile_expr_until_no_greedy(tokens, ")")
-    paren_expr = Enum.reverse(expression(paren_expr_toks))
-    {remaining_tokens, [op] ++ Enum.reverse(paren_expr) ++ [cp] ++ acc}
-  end
+  # def compile_expr([%Tk{val: "("} = op | tokens], acc) do
+  #   # Parse parentheses pairs into subexpressions
+  #   {[cp | remaining_tokens], paren_expr_toks} = compile_expr_until_no_greedy(tokens, ")")
+  #   paren_expr = Enum.reverse(expression(paren_expr_toks))
+  #   {remaining_tokens, [op] ++ Enum.reverse(paren_expr) ++ [cp] ++ acc}
+  # end
 
   def compile_expr([%Tk{type: :symbol} = tk | tokens], acc) do
     # Pass symbols through
@@ -315,7 +315,7 @@ defmodule Jack.Engine do
     {tokens, [%StEl{type: :term, els: [tk]}] ++ acc}
   end
 
-  def compile_expr_until_no_greedy([%Tk{} | _] = tokens, val), do: compile_expr_until_no_greedy({tokens, []}, val)
+  def compile_expr_until_no_greedy(tokens, val) when is_list(tokens), do: compile_expr_until_no_greedy({tokens, []}, val)
   def compile_expr_until_no_greedy({[], acc}, _val), do: {[], acc}
   def compile_expr_until_no_greedy({[%Tk{val: val} | _] = tokens, acc}, val) do
     {tokens, acc}

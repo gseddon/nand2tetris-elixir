@@ -16,15 +16,15 @@ defmodule Jack.Analyser do
     # |> Enum.each(&IO.inspect(&1, limit: :infinity, width: 140))
     {[], program} = Engine.compile(tokens, [])
 
-    # print_structs(program)
+    print_structs(program)
 
-    xml =
-      program
-      |> Enum.reverse()
-      |> Enum.flat_map(&xml_clean/1)
-      |> XmlBuilder.generate()
+    # xml =
+    #   program
+    #   |> Enum.reverse()
+    #   |> Enum.flat_map(&xml_clean/1)
+    #   |> XmlBuilder.generate()
 
-    FileLoader.write_file(xml, {:xml, file})
+    # FileLoader.write_file(xml, {:xml, file})
   end
 
   def print_structs(program) do
