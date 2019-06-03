@@ -3,7 +3,7 @@
 input=$1
 base=${input%.*}
 
-mix jack_compiler ${input}
+mix jack_compiler $@
 echo Compile complete.
 if [[ ${input} == ${base} ]]; then
     base=${base}/$(basename ${base})

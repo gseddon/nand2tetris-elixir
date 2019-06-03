@@ -8,23 +8,24 @@ defmodule Jack.Analyser do
   """
   alias Jack.{Tokeniser, FileLoader, Engine}
 
-  def analyse(file) do
+  def analyse(file, opts) do
     {file_name, lines} = FileLoader.load_file(file)
     IO.puts(file_name)
     tokens = Tokeniser.process(lines)
-    # tokens
-    # |> Enum.each(&IO.inspect(&1, limit: :infinity, width: 140))
+
     {[], program} = Engine.compile(tokens, [])
 
-    print_structs(program)
+    if opts[:only_stdout] do
+      print_structs(program)
+    else
+      xml =
+        program
+        |> Enum.reverse()
+        |> Enum.flat_map(&xml_clean/1)
+        |> XmlBuilder.generate()
 
-    # xml =
-    #   program
-    #   |> Enum.reverse()
-    #   |> Enum.flat_map(&xml_clean/1)
-    #   |> XmlBuilder.generate()
-
-    # FileLoader.write_file(xml, {:xml, file})
+      FileLoader.write_file(xml, {:xml, file})
+    end
   end
 
   def print_structs(program) do

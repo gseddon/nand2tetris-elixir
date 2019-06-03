@@ -200,13 +200,16 @@ defmodule Jack.Engine do
             _ -> false
           end)
 
-        other_exprs =
-          other_expr_toks
-          |> Enum.map(fn
-            [comma | expr] -> [comma] ++ Enum.reverse(expression(expr))
-            _ -> []
-          end)
-        first_expr = Enum.reverse(expression(first_expr_toks))
+          other_exprs =
+          case other_expr_toks do
+            [] ->
+              []
+            [comma | toks] ->
+              [comma | Enum.map_every(toks, 2, &expression/1)]
+              |> Enum.flat_map(fn v -> v end) # Flatten the commas out of the list
+          end
+
+        first_expr = expression(first_expr_toks)
         [%StEl{type: :expression_list, els: first_expr ++ other_exprs}]
     end
 
