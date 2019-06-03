@@ -88,11 +88,11 @@ defmodule Jack.Tokeniser do
           ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"] ->
             :symbol
       "\"" <> _ ->
-         :string_const
+         :string_constant
       var ->
         case Integer.parse(var) do
           :error -> :identifier
-          _ -> :int_const
+          _ -> :integer_constant
         end
     end
   end
