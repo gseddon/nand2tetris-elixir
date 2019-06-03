@@ -233,7 +233,7 @@ defmodule Jack.Engine do
 
   def compile([%Tk{val: "("} = op | tokens], acc) do
     {[cp | remaining_tokens], expression_els} = compile_until_no_greedy(tokens, ")")
-    compile(remaining_tokens, [op] ++ expression(Enum.reverse(expression_els)) ++ [cp] ++ acc)
+    compile(remaining_tokens, [cp] ++ expression(Enum.reverse(expression_els)) ++ [op] ++ acc)
   end
 
 
@@ -283,20 +283,22 @@ defmodule Jack.Engine do
   def expression(tokens) do
 
     {[], terms} = compile_expr_until_no_greedy(tokens, [])
-      # |> Enum.map(fn expr -> %StEl{type: :term, els: [expr]} end)
-    [%StEl{type: :expression, els: terms}]
+    # terms =
+    # tokens
+    #   |> Enum.map(fn expr -> %StEl{type: :term, els: [expr]} end)
+    [%StEl{type: :expression, els: Enum.reverse(terms)}]
   end
 
 
-  def compile_expr([%Tk{type: :var_name} = tk, %Tk{val: decider_val} = decider | tokens], acc) do
-    # varName | varName '[' expression ']'
-    if decider_val == "[" do
-      {[cb | remaining_tokens], array_expr_toks} = compile_expr_until_no_greedy(tokens, "]")
-      {remaining_tokens, [decider] ++ Enum.reverse(expression(array_expr_toks)) ++ [cb] ++ acc}
-    else
-      {[decider] ++ tokens, [%StEl{type: :term, els: [tk]}] ++ acc}
-    end
-  end
+  # def compile_expr([%Tk{type: :var_name} = tk, %Tk{val: decider_val} = decider | tokens], acc) do
+  #   # varName | varName '[' expression ']'
+  #   if decider_val == "[" do
+  #     {[cb | remaining_tokens], array_expr_toks} = compile_expr_until_no_greedy(tokens, "]")
+  #     {remaining_tokens, [decider] ++ Enum.reverse(expression(array_expr_toks)) ++ [cb] ++ acc}
+  #   else
+  #     {[decider] ++ tokens, [%StEl{type: :term, els: [tk]}] ++ acc}
+  #   end
+  # end
 
   # def compile_expr([%Tk{val: "("} = op | tokens], acc) do
   #   # Parse parentheses pairs into subexpressions
