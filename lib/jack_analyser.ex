@@ -35,7 +35,6 @@ defmodule Jack.Analyser do
   end
 
   def xml_clean(%Tk{type: :comment}), do: []
-  def xml_clean([]), do: []
 
   def xml_clean(%Tk{type: type, val: value}), do: [{uglify_case(type), nil, " #{value} "}]
 

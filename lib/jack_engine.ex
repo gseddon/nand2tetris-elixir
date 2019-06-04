@@ -163,7 +163,7 @@ defmodule Jack.Engine do
     while_statement_expr_w_parens = [op] ++ expression(Enum.reverse(expression_els)) ++ [cp]
 
     {[%Tk{val: "}"} = cb | remaining_tokens], while_body} = compile_until_no_greedy(while_statement_rem_tok, "}")
-    while_bod_w_braces = [ob, %StEl{type: :statements, els: [Enum.reverse(while_body)]}, cb]
+    while_bod_w_braces = [ob, %StEl{type: :statements, els: Enum.reverse(while_body)}, cb]
 
     {remaining_tokens, [%StEl{type: :while_statement, els: [while_kw] ++ while_statement_expr_w_parens ++ while_bod_w_braces}] ++ acc}
   end
