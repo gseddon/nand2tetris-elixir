@@ -238,13 +238,22 @@ defmodule Jack.Engine do
   end
 
 
-  def compile([%Tk{val: "["} = ob | tokens], acc) do
+  def compile([%Tk{type: :identifier} = name, %Tk{val: "["} = ob | tokens], acc) do
     {[cb | remaining_tokens], expression_els} = compile_until_no_greedy(tokens, "]")
-    compile(remaining_tokens, [%StEl{type: :term, els:  [ob] ++ expression(Enum.reverse(expression_els)) ++ [cb]}] ++ acc)
+    compile(remaining_tokens, [%StEl{type: :term, els:  [name, ob] ++ expression(Enum.reverse(expression_els)) ++ [cb]}] ++ acc)
   end
 
 
   ############################### no-ops and closing symbols #########################
+
+
+  def compile([%Tk{type: :identifier} = ident, %Tk{val: val} = sep | tokens], acc) when val in [",", ";"] do
+    compile([sep | tokens], [ident | acc])
+  end
+
+  def compile([%Tk{type: :identifier} = ident | tokens], acc) do
+    compile(tokens, [%StEl{type: :term, els: [ident]} | acc])
+  end
 
   def compile([%Tk{val: ","} = comma | tokens], acc) do
     compile(tokens, [comma | acc])
@@ -254,7 +263,7 @@ defmodule Jack.Engine do
     {tokens, acc}
   end
 
-  def compile([%Tk{type: type} = el | tokens], acc) when type in [:comment, :identifier, :keyword, :symbol, :integer_constant, :string_constant] do
+  def compile([%Tk{type: type} = el | tokens], acc) when type in [:comment, :keyword, :symbol, :integer_constant, :string_constant] do
     compile(tokens, [el | acc])
   end
 
@@ -338,8 +347,13 @@ defmodule Jack.Engine do
   #   {remaining_tokens, [op] ++ Enum.reverse(paren_expr) ++ [cp] ++ acc}
   # end
 
+  # def compile_expr([%StEl{type: term} = tk, | tokens], acc) when type in [:symbol, :term] do
+  #   # Pass symbols and through
+  #   {tokens, [tk | acc]}
+  # end
+
   def compile_expr([%{type: type} = tk | tokens], acc) when type in [:symbol, :term] do
-    # Pass symbols and through
+    # Pass symbols and terms through
     {tokens, [tk | acc]}
   end
 
