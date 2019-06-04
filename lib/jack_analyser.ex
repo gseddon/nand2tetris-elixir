@@ -20,7 +20,6 @@ defmodule Jack.Analyser do
     else
       xml =
         program
-        |> Enum.reverse()
         |> Enum.flat_map(&xml_clean/1)
         |> XmlBuilder.generate()
 

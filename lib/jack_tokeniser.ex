@@ -75,10 +75,6 @@ defmodule Jack.Tokeniser do
     end)
   end
 
-
-  @doc """
-  one of KEYWORD, SYMBOL, IDENTIFIER, INT_CONST, STRING_CONST
-  """
   @spec token_type(any) :: token_type_t
   def token_type(var) do
     case var do
