@@ -85,7 +85,6 @@ defmodule Jack.Engine do
     # ('void' | type) subroutineName '(' parameterList ')'
     # subroutineBody
 
-    # Apparently a parameter list doesn't include the braces ¯\_(ツ)_/¯
     {[%Tk{val: ")"} = cp, %Tk{val: "{"} = ob | remaining_tokens], parameter_list_tokens} = compile_until_no_greedy(tokens, ")")
     parameter_list = [%StEl{type: :parameter_list, els: Enum.reverse(parameter_list_tokens)}]
 
@@ -187,33 +186,32 @@ defmodule Jack.Engine do
 
     {[%Tk{val: ")"} = cp, %Tk{val: ";"} = sc | remaining_tokens], expression_els} = compile_until_no_greedy(rem_name_toks, ")")
 
-    expressions = case expression_els do
-      [] ->
-        [%StEl{type: :expression_list, els: []}]
-
-      _ ->
-        [first_expr_toks | other_expr_toks] =
-          expression_els
-          |> Enum.reverse()
-          |> Enum.chunk_by(fn
-            %Tk{val: ","} -> true
-            _ -> false
-          end)
-
-          other_exprs =
-          case other_expr_toks do
-            [] ->
-              []
-            [comma | toks] ->
-              [comma | Enum.map_every(toks, 2, &expression/1)]
-              |> Enum.flat_map(fn v -> v end) # Flatten the commas out of the list
-          end
-
-        first_expr = expression(first_expr_toks)
-        [%StEl{type: :expression_list, els: first_expr ++ other_exprs}]
-    end
+    expressions = expression_list(expression_els)
 
     {remaining_tokens, [%StEl{type: :do_statement, els: [do_kw] ++ name ++ expressions ++ [cp, sc]}] ++ acc}
+  end
+
+  def compile([%Tk{type: :identifier} = name1, %Tk{val: decider_val} = decider | tokens], acc) when decider_val in [".", "("] do
+    # Subroutine call.
+    # subroutineName '(' expressionList ')' | (className |
+    # varName) '.' subroutineName '(' expressionList ')'
+
+    # expressionList: (expression (',' expression)* )?
+
+    {rem_name_toks, name} = # name includes the opening parenthesis here.
+      case decider_val do
+        "." ->
+          [name2, %Tk{val: "("} = op | rem_name_toks] = tokens
+          {rem_name_toks, [name1, decider, name2, op]}
+        "(" ->
+          {tokens, [name1, decider]}
+      end
+
+    {[%Tk{val: ")"} = cp | remaining_tokens], expression_els} = compile_until_no_greedy(rem_name_toks, ")")
+
+    expressions = expression_list(expression_els)
+
+    {remaining_tokens, [%StEl{type: :term, els: name ++ expressions ++ [cp]}] ++ acc}
   end
 
 
@@ -237,6 +235,12 @@ defmodule Jack.Engine do
   def compile([%Tk{val: "("} = op | tokens], acc) do
     {[cp | remaining_tokens], expression_els} = compile_until_no_greedy(tokens, ")")
     compile(remaining_tokens, [%StEl{type: :term, els:  [op] ++ expression(Enum.reverse(expression_els)) ++ [cp]}] ++ acc)
+  end
+
+
+  def compile([%Tk{val: "["} = ob | tokens], acc) do
+    {[cb | remaining_tokens], expression_els} = compile_until_no_greedy(tokens, "]")
+    compile(remaining_tokens, [%StEl{type: :term, els:  [ob] ++ expression(Enum.reverse(expression_els)) ++ [cb]}] ++ acc)
   end
 
 
@@ -281,14 +285,38 @@ defmodule Jack.Engine do
     |> compile_until_no_greedy(tk)
   end
 
+  def expression_list(expression_els) do
+    case expression_els do
+      [] ->
+        [%StEl{type: :expression_list, els: []}]
+
+      _ ->
+        [first_expr_toks | other_expr_toks] =
+          expression_els
+          |> Enum.reverse()
+          |> Enum.chunk_by(fn
+            %Tk{val: ","} -> true
+            _ -> false
+          end)
+
+          other_exprs =
+          case other_expr_toks do
+            [] ->
+              []
+            [comma | toks] ->
+              [comma | Enum.map_every(toks, 2, &expression/1)]
+              |> Enum.flat_map(fn v -> v end) # Flatten the commas out of the list
+          end
+
+        first_expr = expression(first_expr_toks)
+        [%StEl{type: :expression_list, els: first_expr ++ other_exprs}]
+    end
+  end
+
   @spec expression(list(StEl.t() | Tk.t())) :: [StEl.t()]
   def expression([]), do: []
   def expression(tokens) do
-
     {[], terms} = compile_expr_until_no_greedy(tokens, [])
-    # terms =
-    # tokens
-    #   |> Enum.map(fn expr -> %StEl{type: :term, els: [expr]} end)
     [%StEl{type: :expression, els: Enum.reverse(terms)}]
   end
 
@@ -299,7 +327,7 @@ defmodule Jack.Engine do
   #     {[cb | remaining_tokens], array_expr_toks} = compile_expr_until_no_greedy(tokens, "]")
   #     {remaining_tokens, [decider] ++ Enum.reverse(expression(array_expr_toks)) ++ [cb] ++ acc}
   #   else
-  #     {[decider] ++ tokens, [%StEl{type: :term, els: [tk]}] ++ acc}
+  #     {[decider] ++ tokens, [%StE l{type: :term, els: [tk]}] ++ acc}
   #   end
   # end
 
