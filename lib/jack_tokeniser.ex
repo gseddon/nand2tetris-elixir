@@ -27,7 +27,7 @@ defmodule Jack.Tokeniser do
    :int  | :boolean | :char  | :void  | :var |  :static  | :field  |
    :let  | :do  | :if  | :else  | :while  | :return  | :true  | :false  | :null  | :this
 
-  @type token_type_t :: :keyword | :symbol | :identifier | :int_const | :string_const | :comment
+  @type token_type_t :: :keyword | :symbol | :identifier | :integer_constant | :string_constant | :comment
 
   @doc """
   Given a number of lines representing an entire file, return them as tokens.
@@ -66,6 +66,8 @@ defmodule Jack.Tokeniser do
         case type do
           :keyword ->
             %Tk{type: :keyword, val: el |> String.to_atom(), line: lineno}
+          :string_constant ->
+            %Tk{type: :string_constant, val: String.slice(el, 1..-2), line: lineno}
           _ ->
             %Tk{type: type, val: el, line: lineno}
         end
